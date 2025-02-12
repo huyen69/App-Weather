@@ -8,8 +8,19 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.os.Looper;
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,9 +29,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
@@ -70,22 +78,13 @@ public class MainActivity extends AppCompatActivity {
                 String pressure = "Áp suất: " + main.getString("pressure") + " hPa";
                 String windSpeed = "Gió: " + wind.getString("speed") + " m/s";
 
-                // Lấy thời gian mặt trời mọc/lặn (định dạng thành giờ phút)
-                long sunriseTimestamp = sys.getLong("sunrise") * 1000L;  // Chuyển sang mili-giây
-                long sunsetTimestamp = sys.getLong("sunset") * 1000L;
-
-                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                String sunrise = "Mặt trời mọc: " + sdf.format(new Date(sunriseTimestamp));
-                String sunset = "Mặt trời lặn: " + sdf.format(new Date(sunsetTimestamp));
 
                 // Hiển thị thông tin lên giao diện
                 weatherInfo.setText(temperature + "\n" +
                         feelsLike + "\n" +
                         humidity + "\n" +
                         pressure + "\n" +
-                        windSpeed + "\n" +
-                        sunrise + "\n" +
-                        sunset + "\n"
+                        windSpeed + "\n"
                         );
 
                 // Cập nhật biểu tượng thời tiết
@@ -132,6 +131,15 @@ public class MainActivity extends AppCompatActivity {
         weatherInfo = findViewById(R.id.weatherInfo);
         weatherIcon = findViewById(R.id.weatherIcon);
 
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        // Kiểm tra và lấy vị trí
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            getCurrentLocation();
+        }
+
         search.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -140,15 +148,54 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "Please enter a city name!", Toast.LENGTH_SHORT).show();
                     return;
                 }
-
                 String url = "https://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=928133397391e6af373468b74849e7ab&units=metric&lang=vi";
-                GetWeather task = new GetWeather();
-                try {
-                    task.execute(url).get();
-                } catch (ExecutionException | InterruptedException e) {
-                    e.printStackTrace();
-                }
+                new GetWeather().execute(url);
             }
         });
     }
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getCurrentLocation();
+            } else {
+                Toast.makeText(this, "Quyền truy cập vị trí bị từ chối", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void getCurrentLocation() {
+        LocationRequest locationRequest = new LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY, 5000
+        ).build();
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+                fusedLocationClient.removeLocationUpdates(this);
+
+                if (locationResult != null && locationResult.getLastLocation() != null) {
+                    Location location = locationResult.getLastLocation();
+                    double latitude = location.getLatitude();
+                    double longitude = location.getLongitude();
+
+                    // Gọi API OpenWeatherMap với tọa độ GPS
+                    String url = "https://api.openweathermap.org/data/2.5/weather?lat=" + latitude + "&lon=" + longitude + "&appid=928133397391e6af373468b74849e7ab&units=metric&lang=vi";
+                    new GetWeather().execute(url);
+                }
+            }
+        }, Looper.getMainLooper());
+    }
+
+
 }
