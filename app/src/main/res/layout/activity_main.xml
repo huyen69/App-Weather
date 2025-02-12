@@ -8,14 +8,15 @@
     tools:context=".MainActivity">
 
     <!-- Hình nền -->
+
+    <!-- Tiêu đề -->
     <ImageView
         android:id="@+id/background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:background="#3F51B5" />
+        android:background="#2196F3"
+        android:scaleType="centerCrop" />
 
-    <!-- Tiêu đề -->
     <TextView
         android:id="@+id/title"
         android:layout_width="wrap_content"
