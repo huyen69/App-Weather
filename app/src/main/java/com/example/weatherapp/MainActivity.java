@@ -63,8 +63,20 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
+            if (result == null) {
+                Toast.makeText(MainActivity.this, "Không tìm thấy thành phố này", Toast.LENGTH_SHORT).show();
+                return;
+            }
             try {
                 JSONObject jsonObject = new JSONObject(result);
+
+                // Kiểm tra mã lỗi
+                if (jsonObject.has("cod") && jsonObject.getInt("cod") != 200) {
+                    String message = jsonObject.getString("message");
+                    Toast.makeText(MainActivity.this, "Không tìm thấy thành phố: " + message, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 JSONObject main = jsonObject.getJSONObject("main");
                 JSONArray weatherArray = jsonObject.getJSONArray("weather");
                 JSONObject weather = weatherArray.getJSONObject(0);
@@ -78,22 +90,23 @@ public class MainActivity extends AppCompatActivity {
                 String pressure = "Áp suất: " + main.getString("pressure") + " hPa";
                 String windSpeed = "Gió: " + wind.getString("speed") + " m/s";
 
-
                 // Hiển thị thông tin lên giao diện
                 weatherInfo.setText(temperature + "\n" +
                         feelsLike + "\n" +
                         humidity + "\n" +
                         pressure + "\n" +
                         windSpeed + "\n"
-                        );
+                );
 
                 // Cập nhật biểu tượng thời tiết
                 setWeatherIcon(weather.getString("main"));
 
             } catch (Exception e) {
                 e.printStackTrace();
+                Toast.makeText(MainActivity.this, "Đã xảy ra lỗi", Toast.LENGTH_SHORT).show();
             }
         }
+
     }
 
     private void setWeatherIcon(String condition) {
